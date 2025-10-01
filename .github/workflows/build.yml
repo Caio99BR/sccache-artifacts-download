@@ -15,9 +15,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set variables
+        shell: bash
         run: |
           echo "COMMIT=a888c16ff2be03c9e7e99f8431186985587cf5b2" >> $GITHUB_ENV
           echo "RUN_ID=18143591494" >> $GITHUB_ENV
+
+          # Detect OS and set EXT
           if [[ "${{ runner.os }}" == "Windows" ]]; then
             echo "EXT=.exe" >> $GITHUB_ENV
           else
@@ -25,6 +28,7 @@ jobs:
           fi
 
       - name: Download SCCache Artifact
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
