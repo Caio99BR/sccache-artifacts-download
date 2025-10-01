@@ -14,27 +14,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set variables
-        shell: bash
-        run: |
-          echo "COMMIT=a888c16ff2be03c9e7e99f8431186985587cf5b2" >> $GITHUB_ENV
-          echo "RUN_ID=18143591494" >> $GITHUB_ENV
+      - name: Install SCCache (Mozilla Action)
+        uses: mozilla/sccache-action@v0.0.9
 
-          # Detect OS and set EXT
-          if [[ "${{ runner.os }}" == "Windows" ]]; then
-            echo "EXT=.exe" >> $GITHUB_ENV
-          else
-            echo "EXT=" >> $GITHUB_ENV
-          fi
-
-      - name: Download SCCache Artifact
+      - name: Download custom SCCache Artifact
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COMMIT: ${{ env.COMMIT }}
-          RUN_ID: ${{ env.RUN_ID }}
-          EXT: ${{ env.EXT }}
+          COMMIT: a888c16ff2be03c9e7e99f8431186985587cf5b2
+          RUN_ID: 18143591494
+          SCCACHE_PATH: ${{ env.SCCACHE_PATH }}
         run: |
+          echo "Downloading custom SCCache artifact to overwrite the official one..."
+          
           # Detect architecture
           if [[ "${{ runner.arch }}" == "X64" ]]; then ARCH_ID="x86_64"; fi
           if [[ "${{ runner.arch }}" == "ARM64" ]]; then ARCH_ID="aarch64"; fi
@@ -63,15 +55,16 @@ jobs:
           curl -L -H "Authorization: Bearer $GITHUB_TOKEN" -o sccache.zip "$ARTIFACT_URL"
           unzip -o sccache.zip -d sccache-bin
 
-          # Detect SCCACHE binary
+          # Detect SCCACHE binary in our artifact
           SCCACHE_BIN=$(ls sccache-bin | grep sccache)
 
-          # Avoid double .exe on Windows
-          if [[ "$SCCACHE_BIN" != *$EXT ]]; then
-            SCCACHE_BIN="$SCCACHE_BIN$EXT"
+          # On Windows, append .exe if missing
+          if [[ "${{ runner.os }}" == "Windows" ]] && [[ "$SCCACHE_BIN" != *.exe ]]; then
+            SCCACHE_BIN="$SCCACHE_BIN.exe"
           fi
 
-          export SCCACHE_PATH="$(pwd)/sccache-bin/$SCCACHE_BIN"
+          # Overwrite the SCCACHE_PATH provided by the action
+          mv "sccache-bin/$SCCACHE_BIN" "$SCCACHE_PATH"
           chmod +x "$SCCACHE_PATH"
-          echo "SCCACHE_PATH=$SCCACHE_PATH"
+          echo "Custom SCCache installed at $SCCACHE_PATH"
           "$SCCACHE_PATH" --version
