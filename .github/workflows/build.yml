@@ -1,0 +1,63 @@
+name: Test SCCache Artifact
+
+on:
+  workflow_dispatch:
+
+jobs:
+  download-sccache:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set variables
+        run: |
+          echo "COMMIT=a888c16ff2be03c9e7e99f8431186985587cf5b2" >> $GITHUB_ENV
+          echo "RUN_ID=18143591494" >> $GITHUB_ENV
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            echo "EXT=.exe" >> $GITHUB_ENV
+          else
+            echo "EXT=" >> $GITHUB_ENV
+          fi
+
+      - name: Download SCCache Artifact
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Detect architecture
+          if [[ "${{ runner.arch }}" == "X64" ]]; then ARCH_ID="x86_64"; fi
+          if [[ "${{ runner.arch }}" == "ARM64" ]]; then ARCH_ID="aarch64"; fi
+
+          # Detect OS
+          case "${{ runner.os }}" in
+            Linux) OS_ID="unknown-linux-musl" ;;
+            macOS) OS_ID="apple-darwin" ;;
+            Windows) OS_ID="pc-windows-msvc" ;;
+          esac
+
+          ARTIFACT_NAME="sccache-$COMMIT-$ARCH_ID-$OS_ID"
+          echo "Looking for artifact: $ARTIFACT_NAME"
+
+          ARTIFACT_URL=$(curl -sSL -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/mozilla/sccache/actions/runs/$RUN_ID/artifacts" \
+            | jq -r --arg NAME "$ARTIFACT_NAME" '.artifacts[] | select(.name==$NAME) | .archive_download_url')
+
+          if [[ -z "$ARTIFACT_URL" ]]; then
+            echo "Artifact not found!"
+            exit 1
+          fi
+
+          echo "Downloading $ARTIFACT_URL ..."
+          curl -L -H "Authorization: Bearer $GITHUB_TOKEN" -o sccache.zip "$ARTIFACT_URL"
+          unzip -o sccache.zip -d sccache-bin
+
+          SCCACHE_BIN=$(ls sccache-bin | grep sccache)
+          export SCCACHE_PATH="$(pwd)/sccache-bin/$SCCACHE_BIN$EXT"
+          chmod +x "$SCCACHE_PATH"
+          echo "SCCACHE_PATH=$SCCACHE_PATH"
+          "$SCCACHE_PATH" --version
