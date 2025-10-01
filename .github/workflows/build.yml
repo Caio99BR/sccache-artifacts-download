@@ -31,6 +31,9 @@ jobs:
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMIT: ${{ env.COMMIT }}
+          RUN_ID: ${{ env.RUN_ID }}
+          EXT: ${{ env.EXT }}
         run: |
           # Detect architecture
           if [[ "${{ runner.arch }}" == "X64" ]]; then ARCH_ID="x86_64"; fi
@@ -60,8 +63,15 @@ jobs:
           curl -L -H "Authorization: Bearer $GITHUB_TOKEN" -o sccache.zip "$ARTIFACT_URL"
           unzip -o sccache.zip -d sccache-bin
 
+          # Detect SCCACHE binary
           SCCACHE_BIN=$(ls sccache-bin | grep sccache)
-          export SCCACHE_PATH="$(pwd)/sccache-bin/$SCCACHE_BIN$EXT"
+
+          # Avoid double .exe on Windows
+          if [[ "$SCCACHE_BIN" != *$EXT ]]; then
+            SCCACHE_BIN="$SCCACHE_BIN$EXT"
+          fi
+
+          export SCCACHE_PATH="$(pwd)/sccache-bin/$SCCACHE_BIN"
           chmod +x "$SCCACHE_PATH"
           echo "SCCACHE_PATH=$SCCACHE_PATH"
           "$SCCACHE_PATH" --version
