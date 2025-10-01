@@ -1,14 +1,27 @@
-name: Test SCCache Artifact
+name: Setup SCCache
 
 on:
   workflow_dispatch:
 
 jobs:
-  download-sccache:
-    runs-on: ${{ matrix.os }}
+  setup-sccache:
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os:
+          - runs-on: windows-latest
+            arch: amd64
+          - runs-on: windows-latest
+            arch: aarch64
+          - runs-on: ubuntu-latest
+            arch: amd64
+          - runs-on: ubuntu-latest
+            arch: aarch64
+          - runs-on: macos-latest
+            arch: amd64
+          - runs-on: macos-latest
+            arch: aarch64
+
+    runs-on: ${{ matrix.os.runs-on }}
 
     steps:
       - name: Checkout
@@ -16,9 +29,9 @@ jobs:
 
       - name: Install SCCache (Mozilla Action)
         uses: mozilla/sccache-action@v0.0.9
+        continue-on-error: true
 
-      - name: Download custom SCCache Artifact
-        shell: bash
+      - name: Download custom SCCache artifact
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           COMMIT: a888c16ff2be03c9e7e99f8431186985587cf5b2
@@ -26,10 +39,16 @@ jobs:
           SCCACHE_PATH: ${{ env.SCCACHE_PATH }}
         run: |
           echo "Downloading custom SCCache artifact to overwrite the official one..."
-          
+
           # Detect architecture
-          if [[ "${{ runner.arch }}" == "X64" ]]; then ARCH_ID="x86_64"; fi
-          if [[ "${{ runner.arch }}" == "ARM64" ]]; then ARCH_ID="aarch64"; fi
+          case "${{ matrix.os.arch }}" in
+            amd64|x86_64) ARCH_ID="x86_64" ;;
+            aarch64|arm64) ARCH_ID="aarch64" ;;
+            armv7) ARCH_ID="armv7" ;;
+            i686) ARCH_ID="i686" ;;
+            s390x) ARCH_ID="s390x" ;;
+            *) ARCH_ID="${{ matrix.os.arch }}" ;;
+          esac
 
           # Detect OS
           case "${{ runner.os }}" in
@@ -54,17 +73,31 @@ jobs:
           echo "Downloading $ARTIFACT_URL ..."
           curl -L -H "Authorization: Bearer $GITHUB_TOKEN" -o sccache.zip "$ARTIFACT_URL"
           unzip -o sccache.zip -d sccache-bin
+        shell: bash
 
-          # Detect SCCACHE binary in our artifact
-          SCCACHE_BIN=$(ls sccache-bin | grep sccache)
-
-          # On Windows, append .exe if missing
-          if [[ "${{ runner.os }}" == "Windows" ]] && [[ "$SCCACHE_BIN" != *.exe ]]; then
-            SCCACHE_BIN="$SCCACHE_BIN.exe"
+      - name: Install custom SCCache
+        run: |
+          # Define SCCACHE_PATH se não estiver definido
+          if [[ -z "$SCCACHE_PATH" ]]; then
+            SCCACHE_PATH="$HOME/.local/bin/sccache"
+            mkdir -p "$(dirname "$SCCACHE_PATH")"
           fi
 
-          # Overwrite the SCCACHE_PATH provided by the action
-          mv "sccache-bin/$SCCACHE_BIN" "$SCCACHE_PATH"
-          chmod +x "$SCCACHE_PATH"
-          echo "Custom SCCache installed at $SCCACHE_PATH"
-          "$SCCACHE_PATH" --version
+          echo "Installing custom SCCache to $SCCACHE_PATH..."
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            powershell -Command "Move-Item -Force 'sccache-bin\\sccache.exe' '$env:SCCACHE_PATH'"
+          else
+            mv sccache-bin/sccache "$SCCACHE_PATH"
+            chmod +x "$SCCACHE_PATH"
+          fi
+        shell: bash
+
+      - name: Verify SCCache version
+        run: |
+          echo "SCCache version:"
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            powershell -Command "& $env:SCCACHE_PATH --version"
+          else
+            "$SCCACHE_PATH" --version
+          fi
+        shell: bash
