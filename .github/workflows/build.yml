@@ -27,6 +27,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install SCCache (Mozilla Action)
+        # Install the official SCCache via Mozilla GitHub Action
         uses: mozilla/sccache-action@v0.0.9
         continue-on-error: true
 
@@ -37,12 +38,12 @@ jobs:
           RUN_ID: 18143591494
           SCCACHE_PATH: ${{ env.SCCACHE_PATH }}
         run: |
-          # Download custom SCCache artifact to overwrite the official one
-          echo "Downloading custom SCCache artifact to overwrite the official one..."
+          # Download the custom SCCache build from the specified run
+          echo "Downloading custom SCCache artifact..."
           
           ARCH_ID="${{ matrix.arch }}"
 
-          # Detect OS
+          # Detect OS type for artifact naming
           case "${{ runner.os }}" in
             Linux) OS_ID="unknown-linux-musl" ;;
             macOS) OS_ID="apple-darwin" ;;
@@ -67,68 +68,46 @@ jobs:
           unzip -o sccache.zip -d sccache-bin
         shell: bash
 
-      - name: Install custom SCCache (Linux/macOS)
-        if: runner.os != 'Windows'
+      - name: Install custom SCCache
         run: |
-          # Fallback if SCCACHE_PATH is not defined
+          # Fallback: set SCCACHE_PATH if not already defined
           if [[ -z "$SCCACHE_PATH" ]]; then
-            SCCACHE_PATH="$HOME/.local/bin/sccache"
-            mkdir -p "$(dirname "$SCCACHE_PATH")"
+            if [[ "${{ runner.os }}" == "Windows" ]]; then
+              SCCACHE_PATH="/c/hostedtoolcache/windows/sccache/custom/sccache.exe"
+              mkdir -p "$(dirname "$SCCACHE_PATH")"
+            else
+              SCCACHE_PATH="$HOME/.local/bin/sccache"
+              mkdir -p "$(dirname "$SCCACHE_PATH")"
+            fi
           fi
 
+          # Confirm installation path
           echo "Installing custom SCCache to $SCCACHE_PATH..."
 
-          if [[ ! -f "sccache-bin/sccache" ]]; then
-            echo "Error: sccache binary not found in sccache-bin!"
-            exit 1
+          # Verify the binary exists before moving
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            if [[ ! -f "sccache-bin/sccache.exe" ]]; then
+              echo "Error: sccache binary not found!"
+              exit 1
+            fi
+            rm -f "$SCCACHE_PATH" # Remove old version if exists
+            mv "sccache-bin/sccache.exe" "$SCCACHE_PATH"
+          else
+            if [[ ! -f "sccache-bin/sccache" ]]; then
+              echo "Error: sccache binary not found!"
+              exit 1
+            fi
+            rm -f "$SCCACHE_PATH" # Remove old version if exists
+            mv "sccache-bin/sccache" "$SCCACHE_PATH"
+            chmod +x "$SCCACHE_PATH" # Ensure executable permissions
           fi
 
-          rm -f "$SCCACHE_PATH"
-          mv sccache-bin/sccache "$SCCACHE_PATH"
-          chmod +x "$SCCACHE_PATH"
+          echo "SCCache installed at $SCCACHE_PATH"
         shell: bash
 
-      - name: Install custom SCCache (Windows)
-        if: runner.os == 'Windows'
+      - name: Verify SCCache version
         run: |
-          # Fallback if SCCACHE_PATH is not defined
-          if (-not $env:SCCACHE_PATH) {
-            $env:SCCACHE_PATH = "C:\hostedtoolcache\windows\sccache\custom\sccache.exe"
-            New-Item -ItemType Directory -Force -Path (Split-Path $env:SCCACHE_PATH)
-          }
-
-          Write-Host "Installing custom SCCache to $env:SCCACHE_PATH..."
-
-          if (-not (Test-Path "sccache-bin\sccache.exe")) {
-            Write-Error "sccache binary not found in sccache-bin!"
-            exit 1
-          }
-
-          # Remove existing SCCache if present
-          if (Test-Path $env:SCCACHE_PATH) {
-            Write-Host "Removing existing SCCache at $env:SCCACHE_PATH"
-            Remove-Item -Force $env:SCCACHE_PATH
-          }
-
-          # Move new SCCache binary to target path
-          $dest = $env:SCCACHE_PATH -replace '/', '\'
-          Move-Item -Force "sccache-bin\sccache.exe" $dest
-
-          Write-Host "SCCache installed at $dest"
-        shell: pwsh
-
-      - name: Verify SCCache version (Linux/macOS)
-        if: runner.os != 'Windows'
-        run: |
-          # Print SCCache version to ensure installation worked
+          # Print SCCache version to verify installation worked
           echo "SCCache version:"
           "$SCCACHE_PATH" --version
         shell: bash
-
-      - name: Verify SCCache version (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          # Print SCCache version to ensure installation worked
-          Write-Host "SCCache version:"
-          & "$env:SCCACHE_PATH" --version
-        shell: pwsh
