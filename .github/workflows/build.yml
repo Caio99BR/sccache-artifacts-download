@@ -7,21 +7,21 @@ jobs:
   setup-sccache:
     strategy:
       matrix:
-        os:
-          - runs-on: windows-latest
-            arch: amd64
-          - runs-on: windows-latest
-            arch: aarch64
-          - runs-on: ubuntu-latest
-            arch: amd64
-          - runs-on: ubuntu-latest
-            arch: aarch64
-          - runs-on: macos-latest
-            arch: amd64
-          - runs-on: macos-latest
-            arch: aarch64
+        include:
+         - os: ubuntu-24.04
+           arch: x86_64
+         - os: ubuntu-24.04-arm
+           arch: aarch64
+         - os: macos-15-large
+           arch: x86_64
+         - os: macos-15-xlarge
+           arch: aarch64
+         - os: windows-2025
+           arch: x86_64
+         - os: windows-11-arm
+           arch: aarch64
 
-    runs-on: ${{ matrix.os.runs-on }}
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout
