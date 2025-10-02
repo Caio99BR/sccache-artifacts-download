@@ -30,55 +30,48 @@ jobs:
         uses: mozilla/sccache-action@v0.0.9
         continue-on-error: true
 
+      - name: Verify SCCache path exists
+        run: |
+          echo "SCCACHE_PATH: $SCCACHE_PATH"
+          if [[ ! -f "$SCCACHE_PATH" ]]; then
+            echo "Error: SCCACHE_PATH does not exist!"
+            exit 1
+          fi
+        shell: bash
+
       - name: Download custom SCCache artifact
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           COMMIT: a888c16ff2be03c9e7e99f8431186985587cf5b2
           RUN_ID: 18143591494
-          SCCACHE_PATH: ${{ env.SCCACHE_PATH }}
         run: |
-          echo "Downloading custom SCCache artifact to overwrite the official one..."
-          
+          echo "Downloading custom SCCache artifact..."
           ARCH_ID="${{ matrix.arch }}"
-
           case "${{ runner.os }}" in
             Linux) OS_ID="unknown-linux-musl" ;;
-            macOS) OS_ID="apple-darwin" ;;
             Windows) OS_ID="pc-windows-msvc" ;;
+            macOS) OS_ID="apple-darwin" ;;
           esac
-
           ARTIFACT_NAME="sccache-$COMMIT-$ARCH_ID-$OS_ID"
           echo "Looking for artifact: $ARTIFACT_NAME"
-
           ARTIFACT_URL=$(curl -sSL -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/mozilla/sccache/actions/runs/$RUN_ID/artifacts" \
             | jq -r --arg NAME "$ARTIFACT_NAME" '.artifacts[] | select(.name==$NAME) | .archive_download_url')
-
           if [[ -z "$ARTIFACT_URL" ]]; then
             echo "Artifact not found!"
             exit 1
           fi
-
           echo "Downloading $ARTIFACT_URL ..."
           curl -L -H "Authorization: Bearer $GITHUB_TOKEN" -o sccache.zip "$ARTIFACT_URL"
           unzip -o sccache.zip -d sccache-bin
-        shell: bash
 
-      - name: Install custom SCCache
+      - name: Overwrite SCCache with custom binary
         run: |
-          echo "Installing custom SCCache to $SCCACHE_PATH..."
-
-          if [[ ! -f "sccache-bin/sccache" && ! -f "sccache-bin/sccache.exe" ]]; then
-            echo "Error: sccache binary not found in sccache-bin!"
-            exit 1
-          fi
-
+          echo "Overwriting SCCache binary at $SCCACHE_PATH..."
           if [[ "${{ runner.os }}" == "Windows" ]]; then
-            powershell -Command "if (Test-Path '$env:SCCACHE_PATH') { Remove-Item -Force '$env:SCCACHE_PATH' }"
-            powershell -Command "Move-Item -Force 'sccache-bin\\sccache.exe' '$env:SCCACHE_PATH'"
+            powershell -Command "Copy-Item -Force 'sccache-bin\\sccache.exe' '$env:SCCACHE_PATH'"
           else
-            rm -f "$SCCACHE_PATH"
             mv sccache-bin/sccache "$SCCACHE_PATH"
             chmod +x "$SCCACHE_PATH"
           fi
