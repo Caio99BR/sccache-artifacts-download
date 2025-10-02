@@ -28,7 +28,7 @@ jobs:
 
       - name: Install SCCache (Mozilla Action)
         # Install the official SCCache via Mozilla GitHub Action
-        uses: Caio99BR/sccache-action@0.0.10
+        uses: Caio99BR/sccache-action-arm64@0.0.11
         continue-on-error: true
 
       - name: Download custom SCCache artifact
