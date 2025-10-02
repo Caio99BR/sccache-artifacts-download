@@ -77,16 +77,21 @@ jobs:
 
       - name: Install custom SCCache
         run: |
-          # Define SCCACHE_PATH se não estiver definido
           if [[ -z "$SCCACHE_PATH" ]]; then
             SCCACHE_PATH="$HOME/.local/bin/sccache"
             mkdir -p "$(dirname "$SCCACHE_PATH")"
           fi
-
           echo "Installing custom SCCache to $SCCACHE_PATH..."
+
           if [[ "${{ runner.os }}" == "Windows" ]]; then
+            # Remove antigo se existir
+            powershell -Command "if (Test-Path '$env:SCCACHE_PATH') { Remove-Item -Force '$env:SCCACHE_PATH' }"
+            # Instala o novo
             powershell -Command "Move-Item -Force 'sccache-bin\\sccache.exe' '$env:SCCACHE_PATH'"
           else
+            # Remove antigo se existir
+            rm -f "$SCCACHE_PATH"
+            # Instala o novo
             mv sccache-bin/sccache "$SCCACHE_PATH"
             chmod +x "$SCCACHE_PATH"
           fi
