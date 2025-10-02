@@ -65,24 +65,53 @@ jobs:
           unzip -o sccache.zip -d sccache-bin
         shell: bash
 
-      - name: Install custom SCCache
+      - name: Install custom SCCache (Linux/macOS)
+        if: runner.os != 'Windows'
         run: |
+          # Fallback caso SCCACHE_PATH não exista
+          if [[ -z "$SCCACHE_PATH" ]]; then
+            SCCACHE_PATH="$HOME/.local/bin/sccache"
+            mkdir -p "$(dirname "$SCCACHE_PATH")"
+          fi
+
           echo "Installing custom SCCache to $SCCACHE_PATH..."
 
-          if [[ ! -f "sccache-bin/sccache" && ! -f "sccache-bin/sccache.exe" ]]; then
+          if [[ ! -f "sccache-bin/sccache" ]]; then
             echo "Error: sccache binary not found in sccache-bin!"
             exit 1
           fi
 
-          if [[ "${{ runner.os }}" == "Windows" ]]; then
-            powershell -Command "if (Test-Path $env:SCCACHE_PATH) { Remove-Item -Force $env:SCCACHE_PATH }"
-            powershell -Command "Move-Item -Force sccache-bin\\sccache.exe $env:SCCACHE_PATH"
-          else
-            rm -f "$SCCACHE_PATH"
-            mv sccache-bin/sccache "$SCCACHE_PATH"
-            chmod +x "$SCCACHE_PATH"
-          fi
+          rm -f "$SCCACHE_PATH"
+          mv sccache-bin/sccache "$SCCACHE_PATH"
+          chmod +x "$SCCACHE_PATH"
         shell: bash
+
+      - name: Install custom SCCache (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          # Fallback caso SCCACHE_PATH não exista
+          if (-not $env:SCCACHE_PATH) {
+            $env:SCCACHE_PATH = "C:\hostedtoolcache\windows\sccache\custom\sccache.exe"
+            New-Item -ItemType Directory -Force -Path (Split-Path $env:SCCACHE_PATH)
+          }
+
+          Write-Host "Installing custom SCCache to $env:SCCACHE_PATH..."
+
+          if (-not (Test-Path "sccache-bin\sccache.exe")) {
+            Write-Error "sccache binary not found in sccache-bin!"
+            exit 1
+          }
+
+          if (Test-Path $env:SCCACHE_PATH) {
+            Write-Host "Removing existing SCCache at $env:SCCACHE_PATH"
+            Remove-Item -Force $env:SCCACHE_PATH
+          }
+
+          $dest = $env:SCCACHE_PATH -replace '/', '\'
+          Move-Item -Force "sccache-bin\sccache.exe" $dest
+
+          Write-Host "SCCache installed at $dest"
+        shell: pwsh
 
       - name: Verify SCCache version
         run: |
