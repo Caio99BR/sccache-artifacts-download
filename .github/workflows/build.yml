@@ -37,10 +37,12 @@ jobs:
           RUN_ID: 18143591494
           SCCACHE_PATH: ${{ env.SCCACHE_PATH }}
         run: |
+          # Download custom SCCache artifact to overwrite the official one
           echo "Downloading custom SCCache artifact to overwrite the official one..."
           
           ARCH_ID="${{ matrix.arch }}"
 
+          # Detect OS
           case "${{ runner.os }}" in
             Linux) OS_ID="unknown-linux-musl" ;;
             macOS) OS_ID="apple-darwin" ;;
@@ -68,7 +70,7 @@ jobs:
       - name: Install custom SCCache (Linux/macOS)
         if: runner.os != 'Windows'
         run: |
-          # Fallback caso SCCACHE_PATH não exista
+          # Fallback if SCCACHE_PATH is not defined
           if [[ -z "$SCCACHE_PATH" ]]; then
             SCCACHE_PATH="$HOME/.local/bin/sccache"
             mkdir -p "$(dirname "$SCCACHE_PATH")"
@@ -89,7 +91,7 @@ jobs:
       - name: Install custom SCCache (Windows)
         if: runner.os == 'Windows'
         run: |
-          # Fallback caso SCCACHE_PATH não exista
+          # Fallback if SCCACHE_PATH is not defined
           if (-not $env:SCCACHE_PATH) {
             $env:SCCACHE_PATH = "C:\hostedtoolcache\windows\sccache\custom\sccache.exe"
             New-Item -ItemType Directory -Force -Path (Split-Path $env:SCCACHE_PATH)
@@ -102,23 +104,31 @@ jobs:
             exit 1
           }
 
+          # Remove existing SCCache if present
           if (Test-Path $env:SCCACHE_PATH) {
             Write-Host "Removing existing SCCache at $env:SCCACHE_PATH"
             Remove-Item -Force $env:SCCACHE_PATH
           }
 
+          # Move new SCCache binary to target path
           $dest = $env:SCCACHE_PATH -replace '/', '\'
           Move-Item -Force "sccache-bin\sccache.exe" $dest
 
           Write-Host "SCCache installed at $dest"
         shell: pwsh
 
-      - name: Verify SCCache version
+      - name: Verify SCCache version (Linux/macOS)
+        if: runner.os != 'Windows'
         run: |
+          # Print SCCache version to ensure installation worked
           echo "SCCache version:"
-          if [[ "${{ runner.os }}" == "Windows" ]]; then
-            powershell -Command "& $env:SCCACHE_PATH --version"
-          else
-            "$SCCACHE_PATH" --version
-          fi
+          "$SCCACHE_PATH" --version
         shell: bash
+
+      - name: Verify SCCache version (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          # Print SCCache version to ensure installation worked
+          Write-Host "SCCache version:"
+          & "$env:SCCACHE_PATH" --version
+        shell: pwsh
