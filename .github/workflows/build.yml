@@ -41,14 +41,7 @@ jobs:
           echo "Downloading custom SCCache artifact to overwrite the official one..."
 
           # Detect architecture
-          case "${{ matrix.os.arch }}" in
-            amd64|x86_64) ARCH_ID="x86_64" ;;
-            aarch64|arm64) ARCH_ID="aarch64" ;;
-            armv7) ARCH_ID="armv7" ;;
-            i686) ARCH_ID="i686" ;;
-            s390x) ARCH_ID="s390x" ;;
-            *) ARCH_ID="${{ matrix.os.arch }}" ;;
-          esac
+          ARCH_ID="${{ matrix.arch }}"
 
           # Detect OS
           case "${{ runner.os }}" in
