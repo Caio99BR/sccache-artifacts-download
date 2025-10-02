@@ -80,7 +80,7 @@ jobs:
           fi
 
           if [[ "${{ runner.os }}" == "Windows" ]]; then
-            powershell -Command "Move-Item -Force 'sccache-bin\\sccache.exe' '$env:SCCACHE_PATH'"
+            powershell -Command "Move-Item -Force 'sccache-bin\\sccache.exe' `"$env:SCCACHE_PATH`""
           else
             mv sccache-bin/sccache "$SCCACHE_PATH"
             chmod +x "$SCCACHE_PATH"
