@@ -12,10 +12,10 @@ jobs:
            arch: x86_64
          - os: ubuntu-24.04-arm
            arch: aarch64
-         - os: macos-15-large
-           arch: x86_64
-         - os: macos-15
-           arch: aarch64
+         #- os: macos-15-large
+         #  arch: x86_64
+         #- os: macos-15
+         #  arch: aarch64
          - os: windows-2025
            arch: x86_64
          - os: windows-11-arm
