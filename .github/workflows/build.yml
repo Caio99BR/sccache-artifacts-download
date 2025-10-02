@@ -8,19 +8,18 @@ jobs:
     strategy:
       matrix:
         include:
-         - os: ubuntu-24.04
-           arch: x86_64
-         - os: ubuntu-24.04-arm
-           arch: aarch64
-         #- os: macos-15-large
-         #  arch: x86_64
-         #- os: macos-15
-         #  arch: aarch64
-         - os: windows-2025
-           arch: x86_64
-         - os: windows-11-arm
-           arch: aarch64
-
+          - os: ubuntu-24.04
+            arch: x86_64
+          - os: ubuntu-24.04-arm
+            arch: aarch64
+          # - os: macos-15-large
+          #   arch: x86_64
+          # - os: macos-15-xlarge
+          #   arch: aarch64
+          - os: windows-2025
+            arch: x86_64
+          - os: windows-11-arm
+            arch: aarch64
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -39,11 +38,9 @@ jobs:
           SCCACHE_PATH: ${{ env.SCCACHE_PATH }}
         run: |
           echo "Downloading custom SCCache artifact to overwrite the official one..."
-
-          # Detect architecture
+          
           ARCH_ID="${{ matrix.arch }}"
 
-          # Detect OS
           case "${{ runner.os }}" in
             Linux) OS_ID="unknown-linux-musl" ;;
             macOS) OS_ID="apple-darwin" ;;
@@ -70,21 +67,18 @@ jobs:
 
       - name: Install custom SCCache
         run: |
-          if [[ -z "$SCCACHE_PATH" ]]; then
-            SCCACHE_PATH="$HOME/.local/bin/sccache"
-            mkdir -p "$(dirname "$SCCACHE_PATH")"
-          fi
           echo "Installing custom SCCache to $SCCACHE_PATH..."
 
+          if [[ ! -f "sccache-bin/sccache" && ! -f "sccache-bin/sccache.exe" ]]; then
+            echo "Error: sccache binary not found in sccache-bin!"
+            exit 1
+          fi
+
           if [[ "${{ runner.os }}" == "Windows" ]]; then
-            # Remove antigo se existir
             powershell -Command "if (Test-Path '$env:SCCACHE_PATH') { Remove-Item -Force '$env:SCCACHE_PATH' }"
-            # Instala o novo
             powershell -Command "Move-Item -Force 'sccache-bin\\sccache.exe' '$env:SCCACHE_PATH'"
           else
-            # Remove antigo se existir
             rm -f "$SCCACHE_PATH"
-            # Instala o novo
             mv sccache-bin/sccache "$SCCACHE_PATH"
             chmod +x "$SCCACHE_PATH"
           fi
